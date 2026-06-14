@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algoritma Apriori — Kelompok 4</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#1a2234;
+  --accent:#38bdf8;--accent2:#818cf8;--accent3:#34d399;--warn:#fb923c;
+  --text:#e2e8f0;--muted:#64748b;--border:#1e293b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;width:100vw;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(56,189,248,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.03) 1px,transparent 1px);
+  background-size:52px 52px;}
+#deck{position:relative;width:100vw;height:100vh;overflow:hidden;}
+.slide{
+  position:absolute;inset:0;z-index:1;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:clamp(14px,3vh,44px) clamp(14px,4vw,64px) 68px;
+  opacity:0;pointer-events:none;transform:translateX(60px);
+  transition:opacity .4s ease,transform .4s ease;overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0);}
+.slide.exit{opacity:0;transform:translateX(-60px);}
+#progress-bar{position:fixed;top:0;left:0;height:3px;z-index:500;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .4s ease;}
+#dots{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:7px;z-index:400;}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--muted);cursor:pointer;transition:all .3s;}
+.dot.active{background:var(--accent);transform:scale(1.6);}
+#nav{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;
+  background:rgba(17,24,39,.9);backdrop-filter:blur(14px);border:1px solid var(--border);
+  border-radius:999px;padding:7px 18px;z-index:400;}
+#nav button{background:none;border:none;color:var(--text);font-size:15px;cursor:pointer;padding:4px 10px;border-radius:8px;transition:background .2s;}
+#nav button:hover{background:var(--surface2);}
+#nav button:disabled{opacity:.3;cursor:default;}
+#slide-counter{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;min-width:48px;text-align:center;}
+.slide-label{position:absolute;top:14px;left:clamp(14px,4vw,52px);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.slide-label span{color:var(--accent);}
+.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:8px;font-family:'JetBrains Mono',monospace;}
+h1{font-size:clamp(1.7rem,4vw,3.4rem);font-weight:700;line-height:1.1;}
+h2{font-size:clamp(1.2rem,2.5vw,2rem);font-weight:700;line-height:1.2;}
+h3{font-size:clamp(.9rem,1.4vw,1.1rem);font-weight:600;}
+p{font-size:clamp(.78rem,1.1vw,.93rem);line-height:1.7;color:#94a3b8;}
+.grad{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.wrap{width:100%;max-width:1080px;}
+.cols-2{display:grid;grid-template-columns:1fr 1fr;gap:clamp(12px,2vw,24px);width:100%;}
+.cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(8px,1.4vw,18px);width:100%;}
+.cols-4{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(7px,1.2vw,14px);width:100%;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:clamp(12px,1.8vw,20px);}
+.cb{border-top:3px solid var(--accent);}.cp{border-top:3px solid var(--accent2);}
+.cg{border-top:3px solid var(--accent3);}.co{border-top:3px solid var(--warn);}
+.code-block{background:#060a12;border:1px solid #1e293b;border-radius:10px;
+  padding:clamp(10px,1.4vw,16px) clamp(12px,1.8vw,20px);font-family:'JetBrains Mono',monospace;
+  font-size:clamp(.65rem,.85vw,.78rem);line-height:1.85;overflow-x:auto;white-space:pre;}
+.kw{color:#c084fc;}.fn{color:#38bdf8;}.str{color:#86efac;}.cm{color:#475569;font-style:italic;}.num{color:#fb923c;}.type{color:#fbbf24;}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--surface2);color:var(--accent);padding:7px 11px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:clamp(.64rem,.82vw,.76rem);letter-spacing:.05em;}
+td{padding:7px 11px;border-bottom:1px solid var(--border);font-size:clamp(.72rem,.95vw,.85rem);}
+tr:hover td{background:rgba(56,189,248,.04);}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:600;font-family:'JetBrains Mono',monospace;}
+.bb{background:rgba(56,189,248,.15);color:var(--accent);}
+.bp{background:rgba(129,140,248,.15);color:var(--accent2);}
+.bg{background:rgba(52,211,153,.15);color:var(--accent3);}
+.bo{background:rgba(251,146,60,.15);color:var(--warn);}
+.formula{background:var(--surface2);border-left:3px solid var(--accent2);border-radius:0 9px 9px 0;
+  padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:clamp(.72rem,.95vw,.86rem);color:#e2e8f0;margin:5px 0;}
+.bignum{font-size:clamp(1.6rem,3vw,2.6rem);font-weight:700;color:var(--accent);line-height:1;}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--accent3);animation:pulse 1.8s ease-in-out infinite;display:inline-block;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.6)}}
+.hero-tag{display:inline-flex;gap:7px;align-items:center;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:999px;padding:5px 14px;font-size:.8rem;color:var(--accent);}
+.lb-wrap{display:flex;flex-direction:column;gap:8px;}
+.lb-row{display:flex;align-items:center;gap:8px;font-size:.78rem;}
+.lb-lbl{width:180px;color:var(--muted);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-bg{flex:1;background:var(--surface2);border-radius:999px;height:8px;}
+.lb-fill{height:8px;border-radius:999px;width:0;transition:width 1s .3s ease;}
+.lb-val{width:40px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--accent);}
+.photo-wrap{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;}
+.photo-circle{
+  width:clamp(72px,7.5vw,96px);height:clamp(72px,7.5vw,96px);border-radius:50%;
+  border:2px solid var(--accent);background:var(--surface2);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;position:relative;transition:border-color .3s,box-shadow .3s;
+}
+.photo-circle:hover{border-color:var(--accent3);box-shadow:0 0 0 4px rgba(52,211,153,.15);}
+.photo-circle img{width:100%;height:100%;object-fit:cover;display:none;position:absolute;inset:0;}
+.photo-placeholder{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:.6rem;text-align:center;padding:4px;}
+.photo-circle input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:10;}
+.member-name{font-size:clamp(.74rem,.95vw,.86rem);font-weight:600;color:var(--text);text-align:center;margin-top:2px;}
+.member-nim{font-size:.68rem;color:var(--muted);font-family:'JetBrains Mono',monospace;text-align:center;}
+.step-row{display:flex;gap:10px;align-items:flex-start;}
+.step-num{min-width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.72rem;flex-shrink:0;}
+.vline{width:1px;background:var(--border);}
+.stat-mini{display:flex;flex-direction:column;gap:2px;align-items:center;text-align:center;}
+.stat-mini .val{font-size:clamp(1.2rem,2.4vw,1.9rem);font-weight:700;font-family:'JetBrains Mono',monospace;}
+.stat-mini .lbl{font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.kbd{position:fixed;top:12px;right:clamp(32px,5vw,56px);font-size:.63rem;color:var(--muted);font-family:'JetBrains Mono',monospace;z-index:300;}
+</style>
+</head>
+<body>
+<div id="progress-bar" style="width:0%"></div>
+<div id="dots"></div>
+<p class="kbd">← → navigasi</p>
+<div id="deck">
+
+<!-- ═══ SLIDE 0 · COVER ═══ -->
+<section class="slide active" id="s0">
+  <div class="slide-label">Kelompok 4 · <span>Kelas D 2024</span></div>
+  <div style="display:flex;gap:clamp(20px,4vw,52px);align-items:center;width:100%;max-width:1080px;justify-content:center;">
+    <!-- foto kiri -->
+    <div class="photo-wrap" onclick="document.getElementById('f-maryam').click()">
+      <div class="photo-circle">
+        <div class="photo-placeholder">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span>Klik upload<br>foto</span>
+        </div>
+        <img id="img-maryam" alt="Maryam">
+        <input type="file" id="f-maryam" accept="image/*" onchange="loadPhoto('maryam',this)">
+      </div>
+      <div class="member-name">Maryam</div>
+      <div class="member-nim">D0224038</div>
+    </div>
+    <!-- tengah -->
+    <div style="text-align:center;flex:1;min-width:0;">
+      <div class="hero-tag" style="margin:0 auto 14px;width:fit-content;"><span class="pulse"></span>Proyek UAS · Algoritma &amp; Pemrograman</div>
+      <h1>Implementasi<br><span class="grad">Algoritma Apriori</span></h1>
+      <p style="margin-top:10px;max-width:440px;margin-inline:auto;">Association Rules untuk Analisis Pola Pembelian pada Dataset Retail Market Basket Transactions</p>
+      <div style="display:flex;gap:clamp(14px,2.5vw,32px);justify-content:center;margin-top:clamp(12px,2vh,24px);">
+        <div class="stat-mini"><span class="val" style="color:var(--accent)">500</span><span class="lbl">Baris Data</span></div>
+        <div class="vline"></div>
+        <div class="stat-mini"><span class="val" style="color:var(--accent2)">500</span><span class="lbl">Keranjang</span></div>
+        <div class="vline"></div>
+        <div class="stat-mini"><span class="val" style="color:var(--accent3)">11.82</span><span class="lbl">Lift Max</span></div>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:14px;">
+        <span class="badge bb">Market Basket Analysis</span>
+        <span class="badge bp">Association Rules</span>
+        <span class="badge bg">Apriori Algorithm</span>
+        <span class="badge bo">itertools · Python</span>
+      </div>
+    </div>
+    <!-- foto kanan -->
+    <div class="photo-wrap" onclick="document.getElementById('f-fiqri').click()">
+      <div class="photo-circle">
+        <div class="photo-placeholder">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span>Klik upload<br>foto</span>
+        </div>
+        <img id="img-fiqri" alt="Fiqri">
+        <input type="file" id="f-fiqri" src="IKKI.jpeg" onchange="loadPhoto('fiqri',this)">
+      </div>
+      <div class="member-name">Muhammad Fiqri</div>
+      <div class="member-nim">D0224331</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 1 · LATAR BELAKANG ═══ -->
+<section class="slide" id="s1">
+  <div class="slide-label"><span>01</span> — Latar Belakang</div>
+  <div class="wrap">
+    <p class="eyebrow">Latar Belakang</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,22px);">Mengapa <span class="grad">Market Basket Analysis</span> Penting?</h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card cb">
+          <p class="eyebrow">Konteks Bisnis</p>
+          <p style="font-size:.85rem;">Toko retail modern memiliki ribuan produk. Memahami produk yang sering dibeli <strong style="color:var(--text)">bersama-sama</strong> adalah kunci strategi pemasaran, penataan rak, dan bundling promosi yang efektif.</p>
+        </div>
+        <div class="card cg">
+          <p class="eyebrow">Pertanyaan Penelitian</p>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:4px;">
+            <div class="step-row"><span class="step-num" style="background:rgba(52,211,153,.15);color:var(--accent3)">?</span><p style="font-size:.84rem;">Produk mana yang sering dibeli bersamaan?</p></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(52,211,153,.15);color:var(--accent3)">?</span><p style="font-size:.84rem;">Seberapa kuat hubungan antar produk tersebut?</p></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(52,211,153,.15);color:var(--accent3)">?</span><p style="font-size:.84rem;">Bagaimana merancang strategi promosi dari data?</p></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card cp">
+          <p class="eyebrow">Solusi: Algoritma Apriori</p>
+          <p style="font-size:.85rem;">Apriori adalah algoritma klasik <em>data mining</em> yang menemukan <strong style="color:var(--accent2)">frequent itemsets</strong> lalu menghasilkan <strong style="color:var(--accent2)">association rules</strong> berdasarkan nilai support, confidence, dan lift.</p>
+        </div>
+        <div class="card co">
+          <p class="eyebrow">Tujuan Proyek</p>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+            <div class="step-row"><span class="step-num" style="background:rgba(251,146,60,.15);color:var(--warn)">1</span><p style="font-size:.84rem;">Implementasi algoritma Apriori pada dataset retail</p></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(251,146,60,.15);color:var(--warn)">2</span><p style="font-size:.84rem;">Menemukan pola kombinasi produk yang sering dibeli bersama</p></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(251,146,60,.15);color:var(--warn)">3</span><p style="font-size:.84rem;">Memberikan rekomendasi strategis berbasis data transaksi</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 2 · DATASET ═══ -->
+<section class="slide" id="s2">
+  <div class="slide-label"><span>02</span> — Dataset</div>
+  <div class="wrap">
+    <p class="eyebrow">Dataset</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Penjelasan <span class="grad">Dataset Retail Market Basket</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb" style="padding:14px 18px;">
+          <p class="eyebrow">Sumber &amp; Ukuran Dataset</p>
+          <p style="font-size:.82rem;margin-bottom:8px;">Kaggle · <em>Retail Market Basket Transactions Dataset</em> oleh wasiqaliyasir</p>
+          <div class="cols-3" style="gap:7px;margin-top:6px;">
+            <div style="background:var(--surface2);border-radius:9px;padding:9px;text-align:center;">
+              <div class="bignum" style="font-size:1.5rem;">500</div><p style="font-size:.68rem;margin-top:2px;">Baris awal</p>
+            </div>
+            <div style="background:var(--surface2);border-radius:9px;padding:9px;text-align:center;">
+              <div class="bignum" style="font-size:1.5rem;color:var(--accent2)">500</div><p style="font-size:.68rem;margin-top:2px;">Keranjang</p>
+            </div>
+            <div style="background:var(--surface2);border-radius:9px;padding:9px;text-align:center;">
+              <div class="bignum" style="font-size:1.5rem;color:var(--accent3)">3</div><p style="font-size:.68rem;margin-top:2px;">Atribut</p>
+            </div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Atribut</th><th>Keterangan</th><th>Peran</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><span class="badge bb">Kolom 0..N</span></td><td>Tidak ada header (header=None)</td><td>Item per baris</td></tr>
+            <tr><td>2</td><td><span class="badge bp">Item</span></td><td>Nama produk di setiap sel</td><td>Komponen utama</td></tr>
+            <tr><td>3</td><td><span class="badge bg">Basket (set)</span></td><td>Setiap baris = 1 keranjang belanja</td><td>Input Apriori</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cg">
+          <p class="eyebrow">Contoh 5 Keranjang Teratas</p>
+          <div class="code-block" style="margin-top:6px;"># Output kode Python
+• Transaksi #01 : shrimp, almonds, avocado, ...
+• Transaksi #02 : burgers, meatballs, eggs
+• Transaksi #03 : chutney
+• Transaksi #04 : turkey, avocado
+• Transaksi #05 : mineral water, milk, energy bar...</div>
+        </div>
+        <div class="card cp">
+          <p class="eyebrow">Representasi Keranjang (set Python)</p>
+          <div class="code-block" style="margin-top:6px;"><span class="cm"># Setiap transaksi disimpan sebagai set</span>
+transactions[<span class="num">0</span>] = {<span class="str">'shrimp'</span>, <span class="str">'almonds'</span>, <span class="str">'avocado'</span>...}
+transactions[<span class="num">1</span>] = {<span class="str">'burgers'</span>, <span class="str">'meatballs'</span>, <span class="str">'eggs'</span>}
+transactions[<span class="num">2</span>] = {<span class="str">'chutney'</span>}
+<span class="cm"># candidate.issubset(tx) → cek kemunculan</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 3 · PREPROCESSING ═══ -->
+<section class="slide" id="s3">
+  <div class="slide-label"><span>03</span> — Preprocessing</div>
+  <div class="wrap">
+    <p class="eyebrow">Preprocessing Data</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Tahapan <span class="grad">Persiapan Data</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <p class="eyebrow">Alur Preprocessing</p>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+            <div class="step-row"><span class="step-num" style="background:rgba(56,189,248,.15);color:var(--accent)">1</span><div><strong style="font-size:.84rem;">Baca CSV (header=None)</strong><p style="font-size:.78rem;">pd.read_csv tanpa header → setiap baris adalah 1 transaksi</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(56,189,248,.15);color:var(--accent)">2</span><div><strong style="font-size:.84rem;">Batasi Data</strong><p style="font-size:.78rem;">df_raw.head(500) → ambil 500 baris pertama</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(52,211,153,.15);color:var(--accent3)">3</span><div><strong style="font-size:.84rem;">Cleaning (dropna per baris)</strong><p style="font-size:.78rem;">dropna() per baris, strip spasi, buang string kosong</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(52,211,153,.15);color:var(--accent3)">4</span><div><strong style="font-size:.84rem;">Transformasi ke Set</strong><p style="font-size:.78rem;">Setiap baris dikonversi menjadi set item Python</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:rgba(129,140,248,.15);color:var(--accent2)">5</span><div><strong style="font-size:.84rem;">Hitung Frekuensi Manual</strong><p style="font-size:.78rem;">Loop transaksi → item_counts dict, tanpa library tambahan</p></div></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cp">
+          <p class="eyebrow">Kode Preprocessing (Python)</p>
+          <div class="code-block" style="margin-top:6px;"><span class="cm"># a. Baca CSV tanpa header</span>
+df_raw = pd.<span class="fn">read_csv</span>(file_target, <span class="kw">header</span>=<span class="kw">None</span>)
+<span class="cm"># b. Batasi 500 baris</span>
+df_raw = df_raw.<span class="fn">head</span>(<span class="num">500</span>)
+<span class="cm"># c. Cleaning & transformasi ke set</span>
+transactions = []
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(df_raw)):
+    row = [<span class="fn">str</span>(item).<span class="fn">strip</span>() <span class="kw">for</span> item <span class="kw">in</span>
+           df_raw.<span class="fn">iloc</span>[i].<span class="fn">dropna</span>().<span class="fn">tolist</span>()
+           <span class="kw">if</span> <span class="fn">str</span>(item).<span class="fn">strip</span>() != <span class="str">''</span>]
+    <span class="kw">if</span> <span class="fn">len</span>(row) > <span class="num">0</span>:
+        transactions.<span class="fn">append</span>(<span class="fn">set</span>(row))</div>
+        </div>
+        <div class="card cg" style="padding:14px 18px;">
+          <p class="eyebrow">Hasil Preprocessing</p>
+          <div style="display:flex;gap:12px;margin-top:8px;">
+            <div style="flex:1;background:var(--surface2);border-radius:9px;padding:10px;text-align:center;">
+              <div class="bignum" style="font-size:1.4rem;">500</div><p style="font-size:.68rem;margin-top:2px;">Baris awal</p>
+            </div>
+            <div style="font-size:1.4rem;color:var(--muted);align-self:center;">→</div>
+            <div style="flex:1;background:var(--surface2);border-radius:9px;padding:10px;text-align:center;">
+              <div class="bignum" style="font-size:1.4rem;color:var(--accent3)">500</div><p style="font-size:.68rem;margin-top:2px;">Keranjang valid</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 4 · SUPPORT & CONFIDENCE ═══ -->
+<section class="slide" id="s4">
+  <div class="slide-label"><span>04</span> — Parameter</div>
+  <div class="wrap">
+    <p class="eyebrow">Penentuan Threshold</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Penentuan <span class="grad">Support &amp; Confidence</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div><p class="eyebrow">Minimum Support</p><h3>0.05 &nbsp;<span style="color:var(--muted);font-weight:400;font-size:.9rem;">= 5%</span></h3></div>
+            <span class="badge bb">min_support=0.05</span>
+          </div>
+          <div class="formula">Support(A) = freq(A) / N_transaksi</div>
+          <p style="margin-top:10px;font-size:.84rem;">Produk/kombinasi harus muncul di minimal <strong style="color:var(--accent)">5%</strong> dari 500 transaksi ≈ <strong style="color:var(--accent)">≥ 25 transaksi</strong>. Menyaring itemset yang terlalu jarang.</p>
+        </div>
+        <div class="card cp">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div><p class="eyebrow">Minimum Lift Threshold</p><h3>1.00 &nbsp;<span style="color:var(--muted);font-weight:400;font-size:.9rem;">= Lift ≥ 1</span></h3></div>
+            <span class="badge bp">min_lift_threshold=1.0</span>
+          </div>
+          <div class="formula">Lift(A→B) = Confidence(A→B) / Support(B)</div>
+          <p style="margin-top:10px;font-size:.84rem;">Aturan asosiasi hanya ditampilkan jika <strong style="color:var(--accent2)">Lift ≥ 1.0</strong>. Lift di bawah 1 berarti korelasi negatif — artinya A dan B justru cenderung <em>tidak</em> dibeli bersama.</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cg">
+          <p class="eyebrow">Alasan Pemilihan Threshold</p>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px;">
+            <div class="step-row"><span style="color:var(--accent3);font-size:1rem;flex-shrink:0;">✦</span><p style="font-size:.84rem;">Dataset kecil (133 transaksi) — threshold rendah agar pola tidak tersaring habis</p></div>
+            <div class="step-row"><span style="color:var(--accent3);font-size:1rem;flex-shrink:0;">✦</span><p style="font-size:.84rem;">Support 5% cukup selektif namun masih menemukan pola bermakna pada dataset ini</p></div>
+            <div class="step-row"><span style="color:var(--accent3);font-size:1rem;flex-shrink:0;">✦</span><p style="font-size:.84rem;">Lift ≥ 1.0 memastikan hanya aturan dengan korelasi positif yang ditampilkan</p></div>
+          </div>
+        </div>
+        <div class="card co">
+          <p class="eyebrow">Contoh Support Produk Utama</p>
+          <table style="margin-top:6px;">
+            <thead><tr><th>Produk</th><th>Frekuensi</th><th>Support</th></tr></thead>
+            <tbody>
+              <tr><td>mineral water</td><td>121×</td><td><span class="badge bb">24.2%</span></td></tr>
+              <tr><td>eggs</td><td>103×</td><td><span class="badge bb">20.6%</span></td></tr>
+              <tr><td>spaghetti</td><td>96×</td><td><span class="badge bb">19.2%</span></td></tr>
+              <tr><td>chocolate</td><td>89×</td><td><span class="badge bp">17.8%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 5 · ALUR APRIORI ═══ -->
+<section class="slide" id="s5">
+  <div class="wrap">
+    <p class="eyebrow"><span>5- </span>Algoritma &amp; Alur Kerja</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Alur Kerja <span class="grad">Algoritma Apriori</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <p class="eyebrow">Langkah-Langkah Iteratif</p>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+            <div class="step-row"><span class="step-num" style="background:var(--accent);color:#000;">1</span><div><strong style="font-size:.84rem;">Scan Database</strong><p style="font-size:.78rem;">Hitung frekuensi setiap item tunggal. Buang item di bawah minSupport → L₁</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:var(--accent2);color:#000;">2</span><div><strong style="font-size:.84rem;">Generate Kandidat (Apriori-Gen)</strong><p style="font-size:.78rem;">Gabungkan Lₖ₋₁ dengan dirinya sendiri → hasilkan Cₖ (kandidat k-itemset)</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:var(--accent3);color:#000;">3</span><div><strong style="font-size:.84rem;">Prune (Anti-Monotone Property)</strong><p style="font-size:.78rem;">Hapus kandidat yang subset-nya tidak frequent. Ulangi langkah 1-3</p></div></div>
+            <div class="step-row"><span class="step-num" style="background:var(--warn);color:#000;">4</span><div><strong style="font-size:.84rem;">Hasilkan Association Rules</strong><p style="font-size:.78rem;">Untuk tiap frequent itemset buat aturan A→B, hitung confidence &amp; lift</p></div></div>
+          </div>
+        </div>
+        <div class="card cp">
+          <p class="eyebrow">Implementasi Python</p>
+          <div class="code-block" style="margin-top:6px;"><span class="cm"># Apriori MANUAL — tanpa library mlxtend</span>
+<span class="kw">import</span> itertools
+min_support  = <span class="num">0.05</span>   <span class="cm"># 5%</span>
+min_count    = min_support * num_transactions
+<span class="cm"># Hitung C1 → F1 (1-itemset)</span>
+item_counts  = {}
+<span class="kw">for</span> tx <span class="kw">in</span> transactions:
+    <span class="kw">for</span> item <span class="kw">in</span> tx: item_counts[item] = item_counts.<span class="fn">get</span>(item,<span class="num">0</span>)+<span class="num">1</span>
+<span class="cm"># Filter & iterasi K-itemset via union frozenset</span>
+df_rules = df_rules.<span class="fn">sort_values</span>(<span class="str">"Lift Ratio"</span>, ascending=<span class="kw">False</span>)</div>
+        </div>
+      </div>
+      <div class="card" style="height:fit-content;">
+        <p class="eyebrow">Ilustrasi Logika — C++ Pseudocode</p>
+        <div class="code-block" style="margin-top:6px;"><span class="type">vector</span>&lt;<span class="type">Itemset</span>&gt; <span class="fn">apriori</span>(<span class="type">DB</span> db, <span class="type">float</span> minSup) {
+  <span class="type">auto</span> L1 = <span class="fn">scanAndFilter</span>(db, minSup);
+  <span class="type">vector</span>&lt;<span class="type">Itemset</span>&gt; all = L1;
+  <span class="kw">for</span> (<span class="type">int</span> k=<span class="num">2</span>; !all.<span class="fn">empty</span>(); k++) {
+    <span class="cm">// generate candidate k-itemsets</span>
+    <span class="type">auto</span> Ck = <span class="fn">aprioriGen</span>(all, k);
+    <span class="cm">// prune: subset tidak frequent dihapus</span>
+    <span class="type">auto</span> Lk = <span class="fn">countAndPrune</span>(db, Ck, minSup);
+    <span class="kw">if</span> (Lk.<span class="fn">empty</span>()) <span class="kw">break</span>;
+    all.<span class="fn">insert</span>(all.end(), Lk.begin(), Lk.end());
+  }
+  <span class="kw">return</span> all;
+}
+
+<span class="type">float</span> <span class="fn">calcLift</span>(<span class="type">Rule</span> r, <span class="type">DB</span> db) {
+  <span class="kw">return</span> r.confidence / <span class="fn">support</span>(r.consequent, db);
+}
+
+<span class="type">bool</span> <span class="fn">isFrequent</span>(<span class="type">Itemset</span> s, <span class="type">DB</span> db, <span class="type">float</span> minSup) {
+  <span class="kw">return</span> <span class="fn">support</span>(s, db) >= minSup; <span class="cm">// Anti-monotone</span>
+}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 6 · LIFT & METRIK ═══ -->
+<section class="slide" id="s6">
+  <div class="slide-label"><span>06</span> — Metrik Evaluasi</div>
+  <div class="wrap">
+    <p class="eyebrow">Evaluasi Aturan</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Memahami <span class="grad">Support · Confidence · Lift</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <p class="eyebrow">Support</p>
+          <div class="formula">Support(A) = |txn mengandung A| / |Total txn|</div>
+          <p style="font-size:.82rem;margin-top:8px;">Mengukur <strong style="color:var(--text)">seberapa sering</strong> suatu itemset muncul dalam dataset. Nilai tinggi berarti itemset populer.</p>
+        </div>
+        <div class="card cp">
+          <p class="eyebrow">Confidence</p>
+          <div class="formula">Confidence(A→B) = Support(A∪B) / Support(A)</div>
+          <p style="font-size:.82rem;margin-top:8px;"><strong style="color:var(--text)">Keyakinan</strong> bahwa jika seseorang membeli A, ia juga akan membeli B. Rentang 0–1.</p>
+        </div>
+        <div class="card cg">
+          <p class="eyebrow">Lift Ratio</p>
+          <div class="formula">Lift(A→B) = Confidence(A→B) / Support(B)</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:.8rem;">
+            <div style="display:flex;gap:8px;"><span class="badge bo">Lift &lt; 1</span><span style="color:var(--muted)">Korelasi negatif</span></div>
+            <div style="display:flex;gap:8px;"><span class="badge bb">Lift = 1</span><span style="color:var(--muted)">Independen</span></div>
+            <div style="display:flex;gap:8px;"><span class="badge bg">Lift &gt; 1</span><span style="color:var(--muted)">Korelasi positif — semakin tinggi semakin kuat</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cg">
+          <p class="eyebrow" style="margin-bottom:12px;">Top 5 Aturan — Visualisasi Lift</p>
+          <div class="lb-wrap" id="lift-bars">
+            <div class="lb-row"><span class="lb-lbl">spaghetti → mineral water</span><div class="lb-bg"><div class="lb-fill" data-val="1.377" style="background:linear-gradient(90deg,#818cf8,#38bdf8)"></div></div><span class="lb-val">1.377</span></div>
+            <div class="lb-row"><span class="lb-lbl">mineral water → spaghetti</span><div class="lb-bg"><div class="lb-fill" data-val="1.377" style="background:linear-gradient(90deg,#34d399,#38bdf8)"></div></div><span class="lb-val">1.377</span></div>
+            <div class="lb-row"><span class="lb-lbl">mineral water → chocolate</span><div class="lb-bg"><div class="lb-fill" data-val="1.254" style="background:linear-gradient(90deg,#fb923c,#fbbf24)"></div></div><span class="lb-val">1.254</span></div>
+            <div class="lb-row"><span class="lb-lbl">chocolate → mineral water</span><div class="lb-bg"><div class="lb-fill" data-val="1.254" style="background:linear-gradient(90deg,#e879f9,#818cf8)"></div></div><span class="lb-val">1.254</span></div>
+            <div class="lb-row"><span class="lb-lbl">eggs → mineral water</span><div class="lb-bg"><div class="lb-fill" data-val="1.204" style="background:linear-gradient(90deg,#f43f5e,#fb923c)"></div></div><span class="lb-val">1.204</span></div>
+          </div>
+        </div>
+        <div class="card co">
+          <p class="eyebrow">Contoh Perhitungan Nyata — pasta → shrimp</p>
+          <div class="formula" style="margin-top:8px;">Support(spaghetti ∪ mineral water) = 96 / 500 = 0.192</div>
+          <div class="formula">Confidence = 0.192 / 0.192 = 0.333 (33.3%)</div>
+          <div class="formula">Lift = 0.333 / 0.242 = <strong style="color:var(--accent3)">1.377</strong> &nbsp;✦ Korelasi positif!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 7 · FREQUENT ITEMS ═══ -->
+<section class="slide" id="s7">
+  <div class="slide-label"><span>07</span> — Frequent Items</div>
+  <div class="wrap">
+    <p class="eyebrow">Produk Terlaris</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">10 Produk <span class="grad">Paling Sering Dibeli</span></h2>
+    <div class="cols-2" style="align-items:start;">
+      <div>
+        <table>
+          <thead><tr><th>No</th><th>Produk</th><th>Frekuensi</th><th>Support</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><strong>mineral water</strong></td><td>121×</td><td><span class="badge bb">24.2%</span></td></tr>
+            <tr><td>2</td><td>eggs</td><td>103×</td><td><span class="badge bb">20.6%</span></td></tr>
+            <tr><td>3</td><td>spaghetti</td><td>96×</td><td><span class="badge bb">19.2%</span></td></tr>
+            <tr><td>4</td><td>chocolate</td><td>89×</td><td><span class="badge bp">17.8%</span></td></tr>
+            <tr><td>5</td><td>french fries</td><td>79×</td><td><span class="badge bp">15.8%</span></td></tr>
+            <tr><td>6</td><td>green tea</td><td>59×</td><td><span class="badge bg">11.8%</span></td></tr>
+            <tr><td>7</td><td>milk</td><td>56×</td><td><span class="badge bg">11.2%</span></td></tr>
+            <tr><td>8</td><td>ground beef</td><td>49×</td><td><span class="badge bo">9.8%</span></td></tr>
+            <tr><td>9</td><td>frozen vegetables</td><td>43×</td><td><span class="badge bo">8.6%</span></td></tr>
+            <tr><td>10</td><td>shrimp</td><td>39×</td><td><span class="badge bo">7.8%</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <p class="eyebrow">Visualisasi Bar Chart</p>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px;" id="freq-bars">
+            <div class="lb-row"><span class="lb-lbl">mineral water</span><div class="lb-bg"><div class="lb-fill" data-val="121" data-max="121" style="background:linear-gradient(90deg,var(--accent),var(--accent2))"></div></div><span class="lb-val">121</span></div>
+            <div class="lb-row"><span class="lb-lbl">eggs</span><div class="lb-bg"><div class="lb-fill" data-val="103" data-max="121" style="background:linear-gradient(90deg,var(--accent2),#e879f9)"></div></div><span class="lb-val">103</span></div>
+            <div class="lb-row"><span class="lb-lbl">spaghetti</span><div class="lb-bg"><div class="lb-fill" data-val="96" data-max="121" style="background:linear-gradient(90deg,var(--accent3),var(--accent))"></div></div><span class="lb-val">96</span></div>
+            <div class="lb-row"><span class="lb-lbl">chocolate</span><div class="lb-bg"><div class="lb-fill" data-val="89" data-max="121" style="background:linear-gradient(90deg,var(--warn),#fbbf24)"></div></div><span class="lb-val">89</span></div>
+            <div class="lb-row"><span class="lb-lbl">french fries</span><div class="lb-bg"><div class="lb-fill" data-val="79" data-max="121" style="background:linear-gradient(90deg,#f43f5e,var(--warn))"></div></div><span class="lb-val">79</span></div>
+            <div class="lb-row"><span class="lb-lbl">green tea</span><div class="lb-bg"><div class="lb-fill" data-val="59" data-max="121" style="background:linear-gradient(90deg,var(--accent3),#86efac)"></div></div><span class="lb-val">59</span></div>
+          </div>
+        </div>
+        <div class="card cg">
+          <p class="eyebrow">Insight</p>
+          <p style="font-size:.84rem;"><strong style="color:var(--accent3)">Mineral water</strong> adalah produk paling populer dengan support 24.2% (121 transaksi), diikuti <strong style="color:var(--text)">eggs</strong> (20.6%) dan <strong style="color:var(--text)">spaghetti</strong> (19.2%). Ketiga produk ini adalah kandidat kuat untuk paket promosi.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 8 · HASIL ATURAN ═══ -->
+<section class="slide" id="s8">
+  <div class="slide-label"><span>08</span> — Hasil &amp; Analisis</div>
+  <div class="wrap">
+    <p class="eyebrow">Association Rules Terbaik</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Top <span class="grad">Aturan Asosiasi</span> Berdasarkan Lift</h2>
+    <div class="cols-2" style="align-items:start;">
+      <div>
+        <table>
+          <thead><tr><th>#</th><th>Jika Beli (A)</th><th>Maka Beli (B)</th><th>Conf.</th><th>Lift</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>spaghetti</td><td>mineral water</td><td><span class="badge bg">33.3%</span></td><td><span class="badge bb">1.377</span></td></tr>
+            <tr><td>2</td><td>mineral water</td><td>spaghetti</td><td><span class="badge bg">26.4%</span></td><td><span class="badge bb">1.377</span></td></tr>
+            <tr><td>3</td><td>mineral water</td><td>chocolate</td><td><span class="badge bg">22.3%</span></td><td><span class="badge bp">1.254</span></td></tr>
+            <tr><td>4</td><td>chocolate</td><td>mineral water</td><td><span class="badge bo">30.3%</span></td><td><span class="badge bp">1.254</span></td></tr>
+            <tr><td>5</td><td>mineral water</td><td>eggs</td><td><span class="badge bg">24.8%</span></td><td><span class="badge bb">1.204</span></td></tr>
+            <tr><td>6</td><td>eggs</td><td>mineral water</td><td><span class="badge bo">29.1%</span></td><td><span class="badge bb">1.204</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <div class="card cb">
+          <p class="eyebrow">Analisis Aturan Terkuat</p>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+            <div class="step-row"><span style="color:var(--accent);font-size:1rem;flex-shrink:0;">🍝</span><div><strong style="font-size:.83rem;">Spaghetti ↔ Mineral Water (Lift 1.377)</strong><p style="font-size:.78rem;">Kombinasi terkuat. 33.3% pembeli spaghetti juga beli mineral water</p></div></div>
+            <div class="step-row"><span style="color:var(--accent2);font-size:1rem;flex-shrink:0;">🍫</span><div><strong style="font-size:.83rem;">Mineral Water → Chocolate (Conf. 22.3%)</strong><p style="font-size:.78rem;">Lift 1.254 — pembeli mineral water cenderung juga membeli cokelat</p></div></div>
+            <div class="step-row"><span style="color:var(--accent3);font-size:1rem;flex-shrink:0;">🥚</span><div><strong style="font-size:.83rem;">Mineral Water → Eggs (Conf. 24.8%)</strong><p style="font-size:.78rem;">Lift 1.204 — mineral water, eggs, spaghetti sering muncul bersama</p></div></div>
+          </div>
+        </div>
+        <div class="card cp">
+          <p class="eyebrow">Output Kode</p>
+          <div class="code-block" style="margin-top:6px;"><span class="cm"># Output df_rules (top 3)</span>
+   Jika Membeli        Maka Membeli   Supp   Conf   Lift
+<span class="num">0</span>  spaghetti           mineral water  <span class="num">0.192</span>  <span class="num">0.333</span>  <span class="num">1.377</span>
+<span class="num">1</span>  mineral water       spaghetti      <span class="num">0.242</span>  <span class="num">0.264</span>  <span class="num">1.377</span>
+<span class="num">2</span>  mineral water       chocolate      <span class="num">0.242</span>  <span class="num">0.223</span>  <span class="num">1.254</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 9 · REKOMENDASI ═══ -->
+<section class="slide" id="s9">
+  <div class="slide-label"><span>09</span> — Rekomendasi</div>
+  <div class="wrap">
+    <p class="eyebrow">Interpretasi &amp; Rekomendasi Bisnis</p>
+    <h2 style="margin-bottom:clamp(12px,2vh,20px);">Strategi <span class="grad">Retail Berbasis Data</span></h2>
+    <div class="cols-3" style="align-items:start;margin-bottom:14px;">
+      <div class="card cb">
+        <p class="eyebrow">🛍️ Bundling Paket Promo</p>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px;font-size:.83rem;">
+          <div style="display:flex;gap:7px;align-items:center;"><span class="badge bb">Paket 1</span><span>Spaghetti + Mineral Water</span></div>
+          <div style="display:flex;gap:7px;align-items:center;"><span class="badge bp">Paket 2</span><span>Mineral Water + Chocolate</span></div>
+          <div style="display:flex;gap:7px;align-items:center;"><span class="badge bg">Paket 3</span><span>Mineral Water + Eggs</span></div>
+          <div style="display:flex;gap:7px;align-items:center;"><span class="badge bo">Paket 4</span><span>Eggs + Spaghetti + Mineral Water</span></div>
+        </div>
+      </div>
+      <div class="card cp">
+        <p class="eyebrow">🗂️ Penataan Rak (Cross-Merchandising)</p>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px;font-size:.83rem;">
+          <p>Letakkan <strong style="color:var(--accent2)">Spaghetti</strong> berdekatan dengan rak <strong style="color:var(--accent2)">Mineral Water</strong></p>
+          <p>Tempatkan <strong style="color:var(--accent2)">Chocolate</strong> dekat area minuman &amp; air mineral</p>
+          <p>Susun <strong style="color:var(--accent2)">Eggs</strong> dekat rak Mineral Water &amp; Spaghetti</p>
+        </div>
+      </div>
+      <div class="card cg">
+        <p class="eyebrow">📊 Program Loyalitas</p>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px;font-size:.83rem;">
+          <p>Beri diskon produk B jika pelanggan membeli produk A dalam satu transaksi</p>
+          <p>Kirim rekomendasi personal berbasis riwayat transaksi pelanggan</p>
+          <p>Highlight produk terlaris (mineral water, eggs) di area checkout</p>
+        </div>
+      </div>
+    </div>
+    <div class="cols-4" style="margin-top:4px;">
+      <div class="card" style="text-align:center;padding:14px 10px;">
+        <div class="bignum" style="font-size:1.6rem;">1.377</div>
+        <p style="font-size:.7rem;margin-top:4px;">Lift max<br>spaghetti↔mineral water</p>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px;">
+        <div class="bignum" style="font-size:1.6rem;color:var(--accent2)">33.3%</div>
+        <p style="font-size:.7rem;margin-top:4px;">Confidence<br>spaghetti→mineral water</p>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px;">
+        <div class="bignum" style="font-size:1.6rem;color:var(--accent3)">6</div>
+        <p style="font-size:.7rem;margin-top:4px;">Aturan asosiasi<br>Lift &gt; 1.0</p>
+      </div>
+      <div class="card" style="text-align:center;padding:14px 10px;">
+        <div class="bignum" style="font-size:1.6rem;color:var(--warn)">4</div>
+        <p style="font-size:.7rem;margin-top:4px;">Paket bundling<br>direkomendasikan</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 10 (idx 9 → ini slide ke-10) · PENUTUP ═══ -->
+<!-- PERLU SLIDE 10, ini indeks 9 karena 0-based, tapi kita tambah satu lagi -->
+
+</div><!-- end #deck placeholder; JS will add slide 10 -->
+
+<div id="nav">
+  <button id="btn-prev" onclick="goSlide(-1)" disabled>&#8592;</button>
+  <span id="slide-counter">1 / 10</span>
+  <button id="btn-next" onclick="goSlide(1)">&#8594;</button>
+</div>
+
+<script>
+// Inject slide 10 (Penutup)
+(function(){
+  const s10 = document.createElement('section');
+  s10.className = 'slide';
+  s10.id = 's10';
+  s10.innerHTML = `
+  <div class="slide-label"><span>10</span> — Penutup</div>
+  <div style="text-align:center;max-width:760px;width:100%;">
+    <div class="hero-tag" style="margin:0 auto 16px;width:fit-content;"><span class="pulse"></span>Kesimpulan Akhir</div>
+    <h2 style="margin-bottom:14px;">Algoritma Apriori berhasil menemukan <span class="grad">pola belanja nyata</span> dari data retail</h2>
+    <p style="max-width:560px;margin-inline:auto;margin-bottom:clamp(16px,2.5vh,28px);">Dengan minimum support 5% dan lift threshold 1.0, ditemukan aturan asosiasi bermakna yang dapat digunakan sebagai dasar pengambilan keputusan bisnis retail.</p>
+    <div class="cols-3" style="margin-bottom:16px;text-align:left;">
+      <div class="card cb" style="padding:16px 14px;">
+        <div class="bignum" style="font-size:1.8rem;">1.377</div>
+        <p style="font-size:.75rem;margin-top:6px;">Lift tertinggi<br><strong style="color:var(--text)">Spaghetti ↔ Mineral Water</strong></p>
+      </div>
+      <div class="card cp" style="padding:16px 14px;">
+        <div class="bignum" style="font-size:1.8rem;color:var(--accent2)">33.3%</div>
+        <p style="font-size:.75rem;margin-top:6px;">Confidence tertinggi<br><strong style="color:var(--text)">Spaghetti → Mineral Water</strong></p>
+      </div>
+      <div class="card cg" style="padding:16px 14px;">
+        <div class="bignum" style="font-size:1.8rem;color:var(--accent3)">500</div>
+        <p style="font-size:.75rem;margin-top:6px;">Keranjang dianalisis<br><strong style="color:var(--text)">dari 500 baris data</strong></p>
+      </div>
+    </div>
+    <!-- foto anggota di penutup -->
+    <div style="display:flex;gap:clamp(20px,4vw,48px);justify-content:center;align-items:flex-start;margin-bottom:14px;">
+      <div class="photo-wrap">
+        <div class="photo-circle" style="pointer-events:none;">
+          <div class="photo-placeholder" id="outro-ph-maryam">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </div>
+          <img id="outro-img-maryam" alt="Maryam">
+        </div>
+        <div class="member-name">Maryam</div>
+        <div class="member-nim">D0224038</div>
+      </div>
+      <div style="align-self:center;text-align:center;">
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:4px;">Dataset</div>
+        <p style="font-size:.75rem;">Retail Market Basket · Kaggle</p>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:8px;margin-bottom:4px;">Tools</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;">
+          <span class="badge bb">Python</span><span class="badge bp">itertools</span><span class="badge bg">pandas</span>
+        </div>
+      </div>
+      <div class="photo-wrap">
+        <div class="photo-circle" style="pointer-events:none;">
+          <div class="photo-placeholder" id="outro-ph-fiqri">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </div>
+          <img id="outro-img-fiqri" alt="Fiqri">
+        </div>
+        <div class="member-name">Muhammad Fiqri</div>
+        <div class="member-nim">D0224331</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <span class="badge bb">Kelompok 4</span>
+      <span class="badge bp">Kelas D 2024</span>
+      <span class="badge bg">Terima Kasih</span>
+    </div>
+  </div>`;
+  document.getElementById('deck').appendChild(s10);
+})();
+
+// ── Photo upload logic ──
+function loadPhoto(who, input) {
+  if (!input.files || !input.files[0]) return;
+  const url = URL.createObjectURL(input.files[0]);
+  // cover slide
+  const img = document.getElementById('img-' + who);
+  const ph = img.previousElementSibling;
+  if (img) { img.src = url; img.style.display = 'block'; if(ph) ph.style.display='none'; }
+  // outro slide
+  const oi = document.getElementById('outro-img-' + who);
+  const oph = document.getElementById('outro-ph-' + who);
+  if (oi) { oi.src = url; oi.style.display = 'block'; if(oph) oph.style.display='none'; }
+}
+
+// ── Slide engine ──
+const slides = document.querySelectorAll('.slide');
+const dotsEl = document.getElementById('dots');
+let cur = 0;
+
+slides.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' active':'');
+  d.title = 'Slide ' + (i+1);
+  d.onclick = () => jumpTo(i);
+  dotsEl.appendChild(d);
+});
+
+function updateUI() {
+  document.getElementById('slide-counter').textContent = (cur+1) + ' / ' + slides.length;
+  document.getElementById('btn-prev').disabled = cur === 0;
+  document.getElementById('btn-next').disabled = cur === slides.length-1;
+  document.getElementById('progress-bar').style.width = (cur/(slides.length-1)*100) + '%';
+  document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('active', i===cur));
+}
+
+function jumpTo(n) {
+  slides[cur].classList.remove('active');
+  slides[cur].classList.add('exit');
+  const prev = cur;
+  setTimeout(() => slides[prev].classList.remove('exit'), 440);
+  cur = n;
+  slides[cur].classList.add('active');
+  updateUI();
+  animateBars();
+}
+
+function goSlide(dir) {
+  const n = cur + dir;
+  if (n < 0 || n >= slides.length) return;
+  jumpTo(n);
+}
+
+function animateBars() {
+  // lift bars (slide 6)
+  document.querySelectorAll('#lift-bars .lb-fill').forEach(b => {
+    const v = parseFloat(b.dataset.val); const MAX = 12;
+    setTimeout(() => { b.style.width = (v/MAX*100)+'%'; }, 150);
+  });
+  // freq bars (slide 7)
+  document.querySelectorAll('#freq-bars .lb-fill').forEach(b => {
+    const v = parseFloat(b.dataset.val); const m = parseFloat(b.dataset.max||'35');
+    setTimeout(() => { b.style.width = (v/m*100)+'%'; }, 150);
+  });
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key==='ArrowRight'||e.key==='ArrowDown') goSlide(1);
+  if (e.key==='ArrowLeft' ||e.key==='ArrowUp')   goSlide(-1);
+});
+
+updateUI();
+animateBars();
+</script>
+</body>
+</html>
